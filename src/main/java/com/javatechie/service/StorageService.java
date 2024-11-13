@@ -1,14 +1,15 @@
 package com.javatechie.service;
 
-import com.javatechie.entity.ImageData;
-import com.javatechie.respository.StorageRepository;
-import com.javatechie.util.ImageUtils;
+import java.io.IOException;
+import java.util.Optional;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.util.Optional;
+import com.javatechie.entity.ImageData;
+import com.javatechie.respository.StorageRepository;
+import com.javatechie.util.ImageUtils;
 
 @Service
 public class StorageService {
@@ -16,21 +17,26 @@ public class StorageService {
     @Autowired
     private StorageRepository repository;
 
-    public String uploadImage(MultipartFile file) throws IOException {
+    public String uploadImage(MultipartFile file) {
+        try {
+            ImageData imageData = new ImageData();
+            imageData.setName(file.getOriginalFilename());
+            imageData.setType(file.getContentType());
+            imageData.setImageData(ImageUtils.compressImage(file.getBytes()));
 
-        ImageData imageData = repository.save(ImageData.builder()
-                .name(file.getOriginalFilename())
-                .type(file.getContentType())
-                .imageData(ImageUtils.compressImage(file.getBytes())).build());
-        if (imageData != null) {
-            return "file uploaded successfully : " + file.getOriginalFilename();
+            ImageData savedImage = repository.save(imageData);
+            if (savedImage != null) {
+                return "file uploaded successfully: " + file.getOriginalFilename();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-        return null;
+        return "file upload failed";
     }
 
-    public byte[] downloadImage(String fileName){
+    public byte[] downloadImage(String fileName) {
         Optional<ImageData> dbImageData = repository.findByName(fileName);
-        byte[] images=ImageUtils.decompressImage(dbImageData.get().getImageData());
-        return images;
+        return dbImageData.map(imageData -> ImageUtils.decompressImage(imageData.getImageData()))
+                          .orElse(null);
     }
 }
